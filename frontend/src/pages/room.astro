@@ -1,0 +1,118 @@
+---
+
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Astro</title>
+	</head>
+	<body>
+		<div class="container">
+		<h1>Our Chat App</h1>
+
+        <button class="btn-room" data-room="Room1">Room 1</button>
+        <button class="btn-room" data-room="Room2">Room 2</button>
+        <button class="btn-room" data-room="Room3">Room 3</button>
+
+			<form class="message-form" action="">
+				<input type="text" id="usernameInput" required placeholder="Enter your username">
+				<input type="text" id="messageInput" required placeholder="Enter your message">
+				<button type="submit">Send message</button>
+			</form>
+
+			<h2>Messages</h2>
+            <h4 class="room-number"></h4>
+			<ul class="messages"></ul>
+		</div>
+
+		<script type="module">
+			import { io } from "https://cdn.socket.io/4.8.1/socket.io.esm.min.js";
+
+			const socket = io('http://localhost:3000') // Socket backend url
+
+            const roomButtons = document.querySelectorAll('.btn-room')
+            const messages = document.querySelector('.messages')
+            const messageForm = document.querySelector('.message-form')
+            const usernameInput = document.querySelector('#usernameInput')
+            const messageInput = document.querySelector('#messageInput')
+
+            let currentRoom = '' // No default room
+
+            //fetch chat history
+			const fetchChatHistory = async (roomId) => {
+				const res = await fetch(`http://localhost:3000/api/chat/room/${roomId}`, {
+					credentials: 'include'
+				})
+				if (res.ok){
+					const data = await res.json()
+					console.log(data)
+					setChatHistory(data);
+				}else{
+					console.log("no history")
+				}
+			}
+			
+			const setChatHistory = (data) => {
+				if(data.length){
+					data.forEach(element => {
+						const messages = document.querySelector('.messages')
+						const li = document.createElement('li')
+						li.innerHTML = `<strong>${element.username}:</strong> ${element.message}`
+						messages.appendChild(li)
+					});
+				}
+			}
+
+            // Handle room buttons
+            roomButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const newRoom = btn.getAttribute('data-room')
+                    const username = usernameInput.value.trim() || 'Anonymous'
+
+                    if (currentRoom) {
+                        // Leave the current room
+                        socket.emit('leave room', { room: currentRoom, username})
+                    }
+
+                    // Join new room
+                    currentRoom = newRoom
+                    document.querySelector('.room-number').innerHTML = btn.innerHTML
+                    socket.emit('join room', { room: currentRoom, username })
+
+                    // Clear the messages ul
+                    messages.innerHTML = ''
+
+                    fetchChatHistory(currentRoom);
+                })
+            })
+
+            // Send message to server
+            messageForm.addEventListener('submit', (e) => {
+                e.preventDefault()
+                const username = usernameInput.value.trim()
+                const message = messageInput.value.trim()
+                if (currentRoom && message) {
+                    socket.emit('sendMessage', {
+                        username,
+                        message: message,
+                        room: currentRoom
+                })
+                    messageInput.value = ''
+                }
+            })
+
+            // Listen for new messages from server
+            socket.on('newMessage', (data) => {
+                if (data.room === currentRoom || !data.room) {
+                    const li = document.createElement('li')
+                    li.innerHTML = `<strong>${data.username}:</strong> ${data.message}`
+                    messages.prepend(li)
+                    }
+            })
+		</script>
+	</body>
+</html>

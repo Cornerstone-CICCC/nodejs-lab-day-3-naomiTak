@@ -12,7 +12,10 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:4321'],
+  credentials: true
+}))
 app.use(express.json());
 
 // Routes
@@ -22,7 +25,7 @@ app.use('/api/chat', chatRouter);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '', // Your frontend url here (Astro, React, vanilla HTML)
+    origin: 'http://localhost:4321', // Your frontend url here (Astro, React, vanilla HTML)
     methods: ["GET", "POST"]
   },
 });
